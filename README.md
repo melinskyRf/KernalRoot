@@ -48,8 +48,7 @@ KernelRoot is a Windows kernel-mode rootkit that provides:
 
 ### How It Works (High Level)
 
-> [!NOTE]
-> **Diagrama de Arquitetura Geral**: Coloque aqui o arquivo XML do diagrama mostrando a visão geral do sistema (Kernel Mode vs User Mode, componentes principais).
+![Kernel / User Mode Architecture](docs/diagrams/kernel_user_mode.drawio)
 
 ---
 

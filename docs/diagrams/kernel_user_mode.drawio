@@ -1,0 +1,102 @@
+<mxfile host="app.diagrams.net" modified="2026-09-13T20:23:00.000Z" agent="ChatGPT" version="24.7.17">
+  <diagram id="kernel-user-architecture" name="Kernel / User Mode Architecture">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- KERNEL MODE -->
+        <mxCell id="kernel" value="KERNEL MODE (Ring 0)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1f2937;strokeColor=#111827;fontColor=#ffffff;fontStyle=1;fontSize=20;verticalAlign=top;spacingTop=14;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="50" width="1440" height="650" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="driver" value="&lt;b&gt;DriverEntry&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Driver initialization / startup&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#374151;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=14;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="55" y="85" width="220" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="wsk" value="&lt;b&gt;WSK TCP Listener&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;TCP listener&lt;br&gt;Port 4444&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#374151;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=14;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="360" y="85" width="250" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ioctl" value="&lt;b&gt;IOCTL Dispatch&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Local control interface&lt;br&gt;controller.exe&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#374151;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=14;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="1050" y="85" width="270" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="tcp_rx" value="&lt;b&gt;TCP Command Receiver&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Accept connection → frame → validate&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#111827;strokeColor=#64748b;fontColor=#ffffff;fontSize=13;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="350" y="210" width="270" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ioctl_rx" value="&lt;b&gt;IOCTL Command Receiver&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Local request → validate&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#111827;strokeColor=#64748b;fontColor=#ffffff;fontSize=13;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="1050" y="210" width="270" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="dispatch" value="&lt;b&gt;dispatch_command()&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Shared command routing / validation logic&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4b5563;strokeColor=#d1d5db;fontColor=#ffffff;fontStyle=1;fontSize=15;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="660" y="315" width="350" height="95" as="geometry"/>
+        </mxCell>
+
+        <!-- Operations -->
+        <mxCell id="process" value="&lt;b&gt;Process Operations&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;exec • ps • kill&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#374151;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=14;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="180" y="485" width="270" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="stealth" value="&lt;b&gt;Stealth / DKOM&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Kernel object manipulation&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#374151;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=14;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="585" y="485" width="270" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fileio" value="&lt;b&gt;File I/O&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#cbd5e1&quot;&gt;Read / write operations&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#374151;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=14;spacing=10;" vertex="1" parent="kernel">
+          <mxGeometry x="990" y="485" width="270" height="90" as="geometry"/>
+        </mxCell>
+
+        <!-- Internal arrows -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="driver" target="wsk">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="wsk" target="tcp_rx">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="ioctl" target="ioctl_rx">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="tcp_rx" target="dispatch">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="ioctl_rx" target="dispatch">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="dispatch" target="process">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="dispatch" target="stealth">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#cbd5e1;" edge="1" parent="kernel" source="dispatch" target="fileio">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- USER MODE -->
+        <mxCell id="user" value="USER MODE (Ring 3)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e5e7eb;strokeColor=#6b7280;fontColor=#111827;fontStyle=1;fontSize=20;verticalAlign=top;spacingTop=14;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="80" y="760" width="1440" height="190" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="controller" value="&lt;b&gt;controller.exe&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#374151&quot;&gt;Local IOCTL client&lt;br&gt;ping • exec • ps • hide • unhide • elevate • unload&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9fafb;strokeColor=#6b7280;fontColor=#111827;fontSize=13;spacing=10;" vertex="1" parent="user">
+          <mxGeometry x="180" y="65" width="450" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="remote" value="&lt;b&gt;netcat / custom TCP client&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#374151&quot;&gt;Remote TCP client&lt;br&gt;Connect to port 4444 • binary framed commands&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9fafb;strokeColor=#6b7280;fontColor=#111827;fontSize=13;spacing=10;" vertex="1" parent="user">
+          <mxGeometry x="910" y="65" width="450" height="85" as="geometry"/>
+        </mxCell>
+
+        <!-- Boundary edges -->
+        <mxCell id="e9" value="initializes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6b7280;" edge="1" parent="1" source="controller" target="ioctl">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e10" value="TCP / port 4444" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6b7280;" edge="1" parent="1" source="remote" target="wsk">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e11" value="command path" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;strokeColor=#6b7280;" edge="1" parent="1" source="driver" target="dispatch">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
