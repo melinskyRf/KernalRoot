@@ -48,40 +48,8 @@ KernelRoot is a Windows kernel-mode rootkit that provides:
 
 ### How It Works (High Level)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        KERNEL MODE (Ring 0)                          │
-│                                                                      │
-│  ┌─────────────┐   ┌─────────────┐   ┌──────────────────────────┐  │
-│  │  DriverEntry │   │   WSK TCP   │   │    IOCTL Dispatch        │  │
-│  │  (startup)   │──►│  Listener   │   │    (local client)        │  │
-│  └─────────────┘   │  Port 4444  │   └────────────┬─────────────┘  │
-│                     └──────┬──────┘                │                 │
-│                            │                       │                 │
-│                            └───────────┬───────────┘                 │
-│                                        ▼                             │
-│                            ┌──────────────────────┐                  │
-│                            │   dispatch_command() │                  │
-│                            │   (shared logic)     │                  │
-│                            └──────────┬───────────┘                  │
-│                                       │                              │
-│                    ┌──────────────────┼──────────────────┐           │
-│                    ▼                  ▼                  ▼           │
-│              ┌──────────┐      ┌──────────┐      ┌──────────┐      │
-│              │ Process  │      │  Stealth │      │  File    │      │
-│              │ Operations│     │  (DKOM)  │      │  I/O     │      │
-│              └──────────┘      └──────────┘      └──────────┘      │
-└──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                        USER MODE (Ring 3)                            │
-│                                                                      │
-│  controller.exe (IOCTL)     │    netcat / custom TCP client         │
-│  - ping, exec, ps, hide,    │    - Connect to port 4444            │
-│    unhide, elevate, unload  │    - Send binary framed commands     │
-└──────────────────────────────────────────────────────────────────────┘
-```
+> [!NOTE]
+> **Diagrama de Arquitetura Geral**: Coloque aqui o arquivo XML do diagrama mostrando a visão geral do sistema (Kernel Mode vs User Mode, componentes principais).
 
 ---
 
@@ -127,162 +95,78 @@ KernelRoot is a Windows kernel-mode rootkit that provides:
 
 ### Initialization Flow
 
-```
-DriverEntry() [driver.c]
-    │
-    ├─► device_set_dispatch(drv)
-    │     └─ Sets all MajorFunction[] to dispatch_create_close
-    │     └─ Overrides IRP_MJ_DEVICE_CONTROL → ioctl_dispatch()
-    │
-    ├─► resolve_eprocess_offsets() [process.c]
-    │     └─ Scans PsInitialSystemProcess (PID 4)
-    │     └─ Finds UniqueProcessId, ActiveProcessLinks, Token, ImageFileName
-    │     └─ Stores in g_EprocOffsets (global offset table)
-    │
-    ├─► dkom_init() [dkom.c]
-    │     └─ Initializes hidden process side-table (64 slots)
-    │     └─ Initializes spinlock for thread-safe DKOM operations
-    │
-    ├─► device_create() [device.c]
-    │     └─ Creates \\Device\\KdmpRt device object
-    │     └─ Creates \\??\\KdmpRt symbolic link (user-mode access)
-    │
-    ├─► socket_init() [socket.c]
-    │     └─ Registers WSK client
-    │     └─ Captures WSK provider NPI
-    │
-    ├─► PsCreateSystemThread() → listener_thread() [socket.c]
-    │     └─ Binds to 0.0.0.0:4444
-    │     └─ Enters accept loop
-    │     └─ Each client → handle_client() → dispatch_command()
-    │
-    └─► stealth_init() [stealth.c]
-          └─ Unlinks from PsLoadedModuleList
-          └─ Zeroes DriverSection pointer
-          └─ (Optional) Wipes PE headers
-```
+> [!NOTE]
+> **Diagrama de Inicialização**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de inicialização do DriverEntry.
+
+O fluxo de inicialização segue esta ordem:
+
+1. **device_set_dispatch(drv)** — Configura todos os `MajorFunction[]` para `dispatch_create_close`, sobrescreve `IRP_MJ_DEVICE_CONTROL` para `ioctl_dispatch()`
+2. **resolve_eprocess_offsets()** — Scanneia `PsInitialSystemProcess` (PID 4), encontra offsets para `UniqueProcessId`, `ActiveProcessLinks`, `Token`, `ImageFileName`, armazena em `g_EprocOffsets`
+3. **dkom_init()** — Inicializa side-table de processos ocultos (64 slots) e spinlock para operações DKOM thread-safe
+4. **device_create()** — Cria device object `\\Device\\KdmpRt` e symbolic link `\\??\\KdmpRt`
+5. **socket_init()** — Registra cliente WSK e captura provider NPI
+6. **PsCreateSystemThread() → listener_thread()** — Thread que escuta na porta 4444, entra em accept loop, cada cliente chama `handle_client() → dispatch_command()`
+7. **stealth_init()** — Desvincula de `PsLoadedModuleList`, zera ponteiro `DriverSection`, opcionalmente limpa PE headers
 
 ### Command Dispatch Flow
 
-```
-TCP Client / controller.exe
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  Socket: handle_client() [socket.c]                 │
-│    ├─ Read 4-byte length prefix                     │
-│    ├─ Read body (cmd + payload)                     │
-│    └─ dispatch_command(body, ...)                   │
-│                                                     │
-│  IOCTL: ioctl_dispatch() [ioctl.c]                  │
-│    ├─ Map IOCTL code → CMD_* code                   │
-│    └─ dispatch_command(cmd_byte + payload, ...)     │
-└─────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  dispatch_command() [commands.c]                    │
-│                                                     │
-│  switch (cmd) {                                     │
-│    CMD_PING    → "pong"                             │
-│    CMD_EXEC    → ZwCreateUserProcess()              │
-│    CMD_PS      → enum_processes() → RK_PROC_ENTRY[] │
-│    CMD_READ    → ZwCreateFile + ZwReadFile          │
-│    CMD_WRITE   → ZwCreateFile + ZwWriteFile         │
-│    CMD_KILL    → ZwTerminateProcess()               │
-│    CMD_HIDE    → hide_process() [dkom.c]            │
-│    CMD_UNHIDE  → unhide_process() [dkom.c]          │
-│    CMD_ELEVATE → elevate_current_to_pid() [process] │
-│    CMD_UNLOAD  → signal g_unload_event              │
-│  }                                                  │
-└─────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────┐
-│  Socket: wsk_send_sync() [socket.c]                 │
-│    ├─ Prepend 4-byte length prefix                  │
-│    └─ Send response to client                       │
-└─────────────────────────────────────────────────────┘
-```
+> [!NOTE]
+> **Diagrama de Dispatch**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de dispatch de comandos (TCP/IOCTL → dispatch_command → operações).
+
+O fluxo de dispatch funciona assim:
+
+1. **TCP Client / controller.exe** envia comando
+2. **Socket: handle_client()** lê 4 bytes de comprimento + body (cmd + payload), chama `dispatch_command()`
+3. **IOCTL: ioctl_dispatch()** mapeia código IOCTL para código CMD_*, chama `dispatch_command()`
+4. **dispatch_command()** executa o comando (switch case) e retorna resposta
+5. **Socket: wsk_send_sync()** prepende 4 bytes de comprimento e envia resposta
 
 ### DKOM (Direct Kernel Object Manipulation) Flow
 
-```
-hide_process(pid) [dkom.c]
-    │
-    ├─► find_process_by_pid(pid) [dkom.c]
-    │     └─ Walks ActiveProcessLinks from System process
-    │     └─ Compares UniqueProcessId at resolved offset
-    │
-    ├─► Acquire spinlock (g_hidden_lock)
-    │
-    ├─► Save original FLINK/BLINK in side-table
-    │     └─ g_hidden[slot].flink = links->Flink
-    │     └─ g_hidden[slot].blink = links->Blink
-    │
-    ├─► Unlink from ActiveProcessLinks
-    │     └─ Flink->Blink = Blink  (previous node points forward)
-    │     └─ Blink->Flink = Flink  (next node points backward)
-    │
-    ├─► Poison own links (self-referential)
-    │     └─ links->Flink = &links->Flink  (crash on traversal)
-    │     └─ links->Blink = &links->Blink
-    │
-    └─► Release spinlock
+> [!NOTE]
+> **Diagrama DKOM**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de hide/unhide de processos via DKOM.
 
-unhide_process(pid) [dkom.c]
-    │
-    ├─► Find side-table entry by PID
-    │
-    ├─► Acquire spinlock
-    │
-    ├─► Restore saved FLINK/BLINK
-    │     └─ links->Flink = saved_flink
-    │     └─ links->Blink = saved_blink
-    │     └─ saved_flink->Blink = links
-    │     └─ saved_blink->Flink = links
-    │
-    ├─► Clear side-table entry
-    │
-    └─► Release spinlock
-```
+O fluxo de hide/unhide funciona assim:
+
+**hide_process(pid)**:
+1. `find_process_by_pid(pid)` — Walks `ActiveProcessLinks` do System process, compara `UniqueProcessId`
+2. Acquire spinlock (`g_hidden_lock`)
+3. Salva FLINK/BLINK originais na side-table
+4. Desvincula de `ActiveProcessLinks` (Flink->Blink = Blink, Blink->Flink = Flink)
+5. Envenena links próprios (self-referential) — crasha qualquer walker
+6. Release spinlock
+
+**unhide_process(pid)**:
+1. Encontra entrada na side-table por PID
+2. Acquire spinlock
+3. Restaura FLINK/BLINK salvos
+4. Limpa entrada na side-table
+5. Release spinlock
 
 ### WSK (Winsock Kernel) Flow
 
-```
-socket_init() [socket.c]
-    │
-    ├─► WskRegister() — Register WSK client
-    └─► WskCaptureProviderNPI() — Get WSK provider dispatch table
+> [!NOTE]
+> **Diagrama WSK**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de socket WSK (init → listen → accept → handle_client).
 
-listener_thread() [socket.c]
-    │
-    ├─► WskSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, WSK_FLAG_LISTEN_SOCKET)
-    ├─► WskBind(0.0.0.0:4444)
-    └─► WskListen()
-    │
-    └─► Accept Loop:
-          ├─► Check g_unload_event (for clean shutdown)
-          ├─► WskAccept() — Blocks until client connects
-          │     └─ Uses IRP + completion routine + KEVENT
-          │     └─ 1-second timeout for unload flag checking
-          │
-          └─► handle_client() [socket.c]
-                ├─► Allocate rbuf + wbuf (64KB each)
-                │
-                └─► Command Loop:
-                      ├─► wsk_recv_sync(rbuf, 4) — Read length prefix
-                      ├─► wsk_recv_sync(rbuf, len) — Read body
-                      ├─► dispatch_command(rbuf, len, wbuf+4, ...)
-                      ├─► wsk_send_sync(wbuf, 4+resp_len) — Send response
-                      └─► Loop until error or client disconnect
+O fluxo WSK funciona assim:
 
-socket_deinit() [socket.c]
-    ├─► KeSetEvent(g_unload_event) — Signal thread to exit
-    ├─► KeDelayExecutionThread(100ms) — Wait for thread to observe
-    ├─► WskReleaseProviderNPI() — Release provider
-    └─► WskDeregister() — Deregister WSK client
-```
+**socket_init()**: `WskRegister()` + `WskCaptureProviderNPI()`
+
+**listener_thread()**:
+1. `WskSocket()` — Cria listen socket
+2. `WskBind()` — Vincula a 0.0.0.0:4444
+3. `WskListen()` — Escuta por conexões
+4. Accept Loop:
+   - Verifica `g_unload_event` (para shutdown limpo)
+   - `WskAccept()` — Bloqueia até cliente conectar (timeout de 1s)
+   - `handle_client()` — Loop de comandos
+     - `wsk_recv_sync(rbuf, 4)` — Lê prefixo de comprimento
+     - `wsk_recv_sync(rbuf, len)` — Lê body
+     - `dispatch_command()` — Executa comando
+     - `wsk_send_sync(wbuf, 4+resp_len)` — Envia resposta
+   - Loop até erro ou disconnect
+
+**socket_deinit()**: `KeSetEvent(g_unload_event)` → delay 100ms → `WskReleaseProviderNPI()` → `WskDeregister()`
 
 ---
 
@@ -717,13 +601,9 @@ printf '\x05\x00\x00\x00\x01' | nc TARGET_IP 4444
 ```
 REQUEST (Client → Server):
   [u32 length LE] [u8 cmd] [payload...]
-  └──────────────┘ └──┬──┘ └────────┘
-        length = 1 + payload_len
 
 RESPONSE (Server → Client):
   [u32 length LE] [payload...]
-  └──────────────┘ └────────┘
-        length = payload_len
 ```
 
 - All integers are **little-endian**
