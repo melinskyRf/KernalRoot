@@ -4,52 +4,9 @@
 
 A research-grade Windows kernel driver demonstrating advanced rootkit techniques including Direct Kernel Object Manipulation (DKOM), module list unlinking, PE header wiping, WSK-based TCP backdoor, and token theft privilege escalation.
 
----
+## Architecture
 
-## ⚠️ Disclaimer
-
-**This project is for educational and authorized security research purposes only.**
-
-- Use only in controlled lab environments you own or have explicit written permission to test
-- Unauthorized deployment on production systems is illegal and unethical
-- The authors assume no liability for misuse or damage caused by this software
-- This code is provided as-is without warranty of any kind
-
----
-
-## 📋 Table of Contents
-
-- [Project Overview](#-project-overview)
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [File Listing (Complete)](#-file-listing-complete)
-- [How Each Component Works](#-how-each-component-works)
-- [Build System](#-build-system)
-- [Configuration](#-configuration)
-- [Deployment](#-deployment)
-- [Command Reference](#-command-reference)
-- [Protocol Specification](#-protocol-specification)
-- [Technical Deep Dives](#-technical-deep-dives)
-- [Detection & Mitigation](#-detection--mitigation)
-- [Testing Checklist](#-testing-checklist)
-- [References](#-references)
-
----
-
-## 🎯 Project Overview
-
-KernelRoot is a Windows kernel-mode rootkit that provides:
-
-1. **TCP Backdoor** — Remote command execution via WSK (Winsock Kernel) on port 4444
-2. **IOCTL Control Plane** — Local control via `\\.\KdmpRt` device symlink
-3. **DKOM Stealth** — Hide processes from Task Manager, Process Explorer, EDR
-4. **Privilege Escalation** — Token theft from SYSTEM process
-5. **Module Unlinking** — Hide from `EnumDeviceDrivers` and `NtQuerySystemInformation`
-
-### How It Works (High Level)
-
-<details>
-<summary><b>Diagrama de Arquitetura Geral</b> (clique para expandir)</summary>
+### Kernel / User Mode Architecture
 
 ```xml
 <mxfile host="app.diagrams.net">
@@ -156,7 +113,51 @@ KernelRoot is a Windows kernel-mode rootkit that provides:
 </mxfile>
 ```
 
-</details>
+---
+
+## ⚠️ Disclaimer
+
+**This project is for educational and authorized security research purposes only.**
+
+- Use only in controlled lab environments you own or have explicit written permission to test
+- Unauthorized deployment on production systems is illegal and unethical
+- The authors assume no liability for misuse or damage caused by this software
+- This code is provided as-is without warranty of any kind
+
+---
+
+## 📋 Table of Contents
+
+- [Project Overview](#-project-overview)
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [File Listing (Complete)](#-file-listing-complete)
+- [How Each Component Works](#-how-each-component-works)
+- [Build System](#-build-system)
+- [Configuration](#-configuration)
+- [Deployment](#-deployment)
+- [Command Reference](#-command-reference)
+- [Protocol Specification](#-protocol-specification)
+- [Technical Deep Dives](#-technical-deep-dives)
+- [Detection & Mitigation](#-detection--mitigation)
+- [Testing Checklist](#-testing-checklist)
+- [References](#-references)
+
+---
+
+## 🎯 Project Overview
+
+KernelRoot is a Windows kernel-mode rootkit that provides:
+
+1. **TCP Backdoor** — Remote command execution via WSK (Winsock Kernel) on port 4444
+2. **IOCTL Control Plane** — Local control via `\\.\KdmpRt` device symlink
+3. **DKOM Stealth** — Hide processes from Task Manager, Process Explorer, EDR
+4. **Privilege Escalation** — Token theft from SYSTEM process
+5. **Module Unlinking** — Hide from `EnumDeviceDrivers` and `NtQuerySystemInformation`
+
+### How It Works (High Level)
+
+The diagram above shows the complete architecture. DriverEntry initializes all kernel components, then WSK TCP Listener and IOCTL Dispatch receive commands, which route through `dispatch_command()` to Process Operations, Stealth/DKOM, or File I/O.
 
 ---
 
