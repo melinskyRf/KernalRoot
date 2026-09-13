@@ -272,6 +272,8 @@ flowchart TD
 
 ```
 KernelRoot/
+├── .gitignore                         ← Git ignore rules
+├── LICENSE                            ← MIT License
 ├── README.md                          ← This file (documentation)
 ├── inc/                               ← Public headers
 │   ├── common.h                       ← Shared IOCTL codes + wire protocol
@@ -293,8 +295,8 @@ KernelRoot/
 ├── usermode/                          ← Usermode tools
 │   ├── controller.c                   ← IOCTL CLI client
 │   └── loader.c                       ← BYOVD manual mapper
-└── build/                             ← Build artifacts
-    ├── build.bat                      ← Build script
+└── build/                             ← Build system
+    ├── build.bat                      ← Build script (main entry point)
     ├── rootkit.inf                    ← INF for driver install
     ├── rootkit.vcxproj                ← Visual Studio project
     ├── rootkit.vcxproj.filters        ← VS filters
