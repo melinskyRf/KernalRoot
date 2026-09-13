@@ -12,7 +12,7 @@
  *   4. ImageFileName:     Scan for "System\0" literal
  *   5. InheritedFromUniqueProcessId: Not reliably locatable; left as 0
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 /*==============================================================================
  * GLOBAL STATE

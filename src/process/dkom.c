@@ -12,7 +12,7 @@
  *   own LIST_ENTRY is poisoned (self-referential) to crash any walker that
  *   lands on the hidden entry rather than silently corrupting the list.
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 /* Maximum number of simultaneously hidden processes. */
 #define MAX_HIDDEN 64

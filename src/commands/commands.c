@@ -9,9 +9,9 @@
  *   RTL_USER_PROCESS_PARAMETERS itself; ZwCreateUserProcess gives us control
  *   over the attribute list and is preferred here.
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 #include <ntimage.h>
-#include "../inc/undoc.h"
+#include "../../inc/undoc.h"
 
 /*==============================================================================
  * FORWARD DECLARATIONS

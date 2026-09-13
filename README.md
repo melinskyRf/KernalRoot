@@ -280,18 +280,25 @@ KernelRoot/
 │   ├── config.h                       ← Build-time configuration
 │   └── undoc.h                        ← Undocumented kernel structures
 ├── src/                               ← Kernel driver source
-│   ├── commands.c                     ← Command dispatcher (TCP + IOCTL)
-│   ├── device.c                       ← Device object + dispatch table
-│   ├── dkom.c                         ← DKOM (hide/unhide processes)
-│   ├── driver.c                       ← DriverEntry / DriverUnload
-│   ├── hook.c                         ← Hooking scaffolding (SSDT, IRP)
-│   ├── ioctl.c                        ← IOCTL dispatch → commands
-│   ├── memory.c                       ← Pool allocation wrappers
-│   ├── obfuscate.c                    ← String XOR + export hashing
-│   ├── process.c                      ← EPROCESS offsets + token theft
-│   ├── socket.c                       ← WSK TCP listener
-│   ├── stealth.c                      ← Module unlink + PE header wipe
-│   └── utils.h                        ← Macros, logging, helpers
+│   ├── utils.h                        ← Macros, logging, helpers (shared)
+│   ├── core/                          ← Core driver lifecycle
+│   │   ├── driver.c                   ← DriverEntry / DriverUnload
+│   │   └── device.c                   ← Device object + dispatch table
+│   ├── commands/                      ← Command handling
+│   │   ├── commands.c                 ← Command dispatcher (TCP + IOCTL)
+│   │   └── ioctl.c                    ← IOCTL dispatch → commands
+│   ├── network/                       ← Network/TCP backdoor
+│   │   └── socket.c                   ← WSK TCP listener
+│   ├── process/                       ← Process operations
+│   │   ├── process.c                  ← EPROCESS offsets + token theft
+│   │   └── dkom.c                     ← DKOM (hide/unhide processes)
+│   ├── stealth/                       ← Stealth mechanisms
+│   │   ├── stealth.c                  ← Module unlink + PE header wipe
+│   │   └── hook.c                     ← Hooking scaffolding (SSDT, IRP)
+│   ├── memory/                        ← Memory management
+│   │   └── memory.c                   ← Pool allocation wrappers
+│   └── obfuscation/                   ← String obfuscation
+│       └── obfuscate.c                ← XOR decrypt + export hashing
 ├── usermode/                          ← Usermode tools
 │   ├── controller.c                   ← IOCTL CLI client
 │   └── loader.c                       ← BYOVD manual mapper

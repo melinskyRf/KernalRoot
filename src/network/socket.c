@@ -9,7 +9,7 @@
  *   - Thread blocks on event -> effectively synchronous but IRP-correct
  *   - 1-second accept timeout allows periodic unload flag checking
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 #include <wsk.h>
 
 /*==============================================================================

@@ -4,7 +4,7 @@
  * Pool allocation wrappers with tag tracking and secure wipe.
  * All allocations use NonPagedPoolNx with the 'Kdmp' tag.
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 /*------------------------------------------------------------------------------
  * rk_alloc - Allocate non-paged pool (Nx = no-execute)

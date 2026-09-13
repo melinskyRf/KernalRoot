@@ -99,17 +99,17 @@
    * SOURCE FILES
    *----------------------------------------------------------------------------*/
   <ItemGroup>
-    <ClCompile Include="..\src\driver.c" />
-    <ClCompile Include="..\src\device.c" />
-    <ClCompile Include="..\src\ioctl.c" />
-    <ClCompile Include="..\src\socket.c" />
-    <ClCompile Include="..\src\commands.c" />
-    <ClCompile Include="..\src\process.c" />
-    <ClCompile Include="..\src\memory.c" />
-    <ClCompile Include="..\src\stealth.c" />
-    <ClCompile Include="..\src\dkom.c" />
-    <ClCompile Include="..\src\hook.c" />
-    <ClCompile Include="..\src\obfuscate.c" />
+    <ClCompile Include="..\src\core\driver.c" />
+    <ClCompile Include="..\src\core\device.c" />
+    <ClCompile Include="..\src\commands\ioctl.c" />
+    <ClCompile Include="..\src\network\socket.c" />
+    <ClCompile Include="..\src\commands\commands.c" />
+    <ClCompile Include="..\src\process\process.c" />
+    <ClCompile Include="..\src\memory\memory.c" />
+    <ClCompile Include="..\src\stealth\stealth.c" />
+    <ClCompile Include="..\src\process\dkom.c" />
+    <ClCompile Include="..\src\stealth\hook.c" />
+    <ClCompile Include="..\src\obfuscation\obfuscate.c" />
   </ItemGroup>
 
   /*==============================================================================

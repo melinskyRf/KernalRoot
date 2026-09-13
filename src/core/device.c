@@ -3,7 +3,7 @@
  *------------------------------------------------------------------------------
  * Device Object Creation + Dispatch Table Setup.
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 extern NTSTATUS ioctl_dispatch(PDEVICE_OBJECT dev, PIRP irp);
 

@@ -6,7 +6,7 @@
  *   2. Zero DriverSection (breaks EnumDeviceDrivers / driver object scans)
  *   3. Optional PE header wipe (memory scan evasion)
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 /*==============================================================================
  * GLOBAL STATE

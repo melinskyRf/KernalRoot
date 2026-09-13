@@ -9,7 +9,7 @@
  *
  * This file is provided as scaffolding for lab/test environments only.
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 /*==============================================================================
  * SSDT HOOK SCAFFOLDING (NOT IMPLEMENTED)

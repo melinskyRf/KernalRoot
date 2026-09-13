@@ -6,7 +6,7 @@
  * All IOCTLs use METHOD_BUFFERED with FILE_ANY_ACCESS.
  * Input/Output buffers are in irp->AssociatedIrp.SystemBuffer.
  *============================================================================*/
-#include "utils.h"
+#include "../utils.h"
 
 extern NTSTATUS dispatch_command(const UCHAR* in, ULONG in_len,
                                  UCHAR* out, ULONG out_cap, ULONG* out_len);
