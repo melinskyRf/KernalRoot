@@ -132,78 +132,137 @@ The diagram above shows the complete architecture. DriverEntry initializes all k
 
 ### Initialization Flow
 
-> [!NOTE]
-> **Diagrama de Inicialização**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de inicialização do DriverEntry.
+```mermaid
+flowchart TD
+    Start["DriverEntry()"] --> A["device_set_dispatch(drv)<br/>Config MajorFunction[]"]
+    A --> B["resolve_eprocess_offsets()<br/>Scan PsInitialSystemProcess (PID 4)<br/>Find offsets: PID, Links, Token, Image"]
+    B --> C["dkom_init()<br/>Init hidden process side-table<br/>Init spinlock for DKOM"]
+    C --> D["device_create()<br/>Create \\Device\\KdmpRt<br/>Create \\??\\KdmpRt symlink"]
+    D --> E["socket_init()<br/>Register WSK client<br/>Capture provider NPI"]
+    E --> F["PsCreateSystemThread()<br/>listener_thread()<br/>Bind 0.0.0.0:4444 + accept loop"]
+    F --> G["stealth_init()<br/>Unlink from PsLoadedModuleList<br/>Zero DriverSection pointer"]
+    G --> H{"Optional:<br/>stealth_wipe_headers()?<br/>PE header wipe (irreversible)"}
+    H -->|Yes| I["Wipe first 4KB<br/>DOS + NT headers"]
+    H -->|No| J["DriverEntry complete"]
+    I --> J
 
-O fluxo de inicialização segue esta ordem:
-
-1. **device_set_dispatch(drv)** — Configura todos os `MajorFunction[]` para `dispatch_create_close`, sobrescreve `IRP_MJ_DEVICE_CONTROL` para `ioctl_dispatch()`
-2. **resolve_eprocess_offsets()** — Scanneia `PsInitialSystemProcess` (PID 4), encontra offsets para `UniqueProcessId`, `ActiveProcessLinks`, `Token`, `ImageFileName`, armazena em `g_EprocOffsets`
-3. **dkom_init()** — Inicializa side-table de processos ocultos (64 slots) e spinlock para operações DKOM thread-safe
-4. **device_create()** — Cria device object `\\Device\\KdmpRt` e symbolic link `\\??\\KdmpRt`
-5. **socket_init()** — Registra cliente WSK e captura provider NPI
-6. **PsCreateSystemThread() → listener_thread()** — Thread que escuta na porta 4444, entra em accept loop, cada cliente chama `handle_client() → dispatch_command()`
-7. **stealth_init()** — Desvincula de `PsLoadedModuleList`, zera ponteiro `DriverSection`, opcionalmente limpa PE headers
+    style Start fill:#374151,stroke:#94a3b8,color:#fff
+    style J fill:#059669,stroke:#047857,color:#fff
+    style H fill:#d97706,stroke:#b45309,color:#fff
+```
 
 ### Command Dispatch Flow
 
-> [!NOTE]
-> **Diagrama de Dispatch**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de dispatch de comandos (TCP/IOCTL → dispatch_command → operações).
+```mermaid
+flowchart TD
+    TCP["TCP Client<br/>(netcat / custom)"] -->|"TCP framed command"| Socket["handle_client()<br/>socket.c"]
+    IOCTL["controller.exe<br/>(IOCTL client)"] -->|"DeviceIoControl()"| IoctlD["ioctl_dispatch()<br/>ioctl.c"]
 
-O fluxo de dispatch funciona assim:
+    Socket -->|"Read 4-byte len + body"| Dispatch["dispatch_command()<br/>commands.c"]
+    IoctlD -->|"Map IOCTL → CMD_* code"| Dispatch
 
-1. **TCP Client / controller.exe** envia comando
-2. **Socket: handle_client()** lê 4 bytes de comprimento + body (cmd + payload), chama `dispatch_command()`
-3. **IOCTL: ioctl_dispatch()** mapeia código IOCTL para código CMD_*, chama `dispatch_command()`
-4. **dispatch_command()** executa o comando (switch case) e retorna resposta
-5. **Socket: wsk_send_sync()** prepende 4 bytes de comprimento e envia resposta
+    Dispatch --> CMD{"switch(cmd)"}
+    CMD -->|"0x01 PING"| PONG["Return 'pong'"]
+    CMD -->|"0x02 EXEC"| EXEC["ZwCreateUserProcess()<br/>Launch process"]
+    CMD -->|"0x03 PS"| PS["enum_processes()<br/>Walk ActiveProcessLinks"]
+    CMD -->|"0x04 READ"| READ["ZwCreateFile + ZwReadFile()<br/>Read file content"]
+    CMD -->|"0x05 WRITE"| WRITE["ZwCreateFile + ZwWriteFile()<br/>Write file at offset"]
+    CMD -->|"0x06 KILL"| KILL["ZwTerminateProcess()<br/>Kill process by PID"]
+    CMD -->|"0x07 HIDE"| HIDE["hide_process()<br/>dkom.c — unlink from ActiveProcessLinks"]
+    CMD -->|"0x08 UNHIDE"| UNHIDE["unhide_process()<br/>dkom.c — restore links"]
+    CMD -->|"0x09 ELEVATE"| ELEV["elevate_current_to_pid()<br/>process.c — token theft"]
+    CMD -->|"0x0A UNLOAD"| UNLOAD["Signal g_unload_event<br/>+ delete service key"]
+
+    PONG --> Resp["Prepend 4-byte length<br/>Send response"]
+    EXEC --> Resp
+    PS --> Resp
+    READ --> Resp
+    WRITE --> Resp
+    KILL --> Resp
+    HIDE --> Resp
+    UNHIDE --> Resp
+    ELEV --> Resp
+    UNLOAD --> Resp
+
+    style Start fill:#374151,stroke:#94a3b8,color:#fff
+    style Dispatch fill:#4b5563,stroke:#d1d5db,color:#fff
+    style CMD fill:#d97706,stroke:#b45309,color:#fff
+    style Resp fill:#059669,stroke:#047857,color:#fff
+```
 
 ### DKOM (Direct Kernel Object Manipulation) Flow
 
-> [!NOTE]
-> **Diagrama DKOM**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de hide/unhide de processos via DKOM.
+```mermaid
+flowchart TD
+    subgraph HIDE["HIDE PROCESS"]
+        direction TB
+        H1["find_process_by_pid(pid)<br/>Walk ActiveProcessLinks from System"] --> H2["Acquire spinlock<br/>(g_hidden_lock)"]
+        H2 --> H3["Save original FLINK/BLINK<br/>in side-table slot"]
+        H3 --> H4["Unlink from ActiveProcessLinks<br/>Flink->Blink = Blink<br/>Blink->Flink = Flink"]
+        H4 --> H5["Poison own links<br/>Self-referential<br/>Crash any walker"]
+        H5 --> H6["Release spinlock"]
+    end
 
-O fluxo de hide/unhide funciona assim:
+    subgraph UNHIDE["UNHIDE PROCESS"]
+        direction TB
+        U1["Find side-table entry<br/>by PID"] --> U2["Acquire spinlock<br/>(g_hidden_lock)"]
+        U2 --> U3["Restore saved FLINK/BLINK<br/>links->Flink = saved_flink<br/>links->Blink = saved_blink"]
+        U3 --> U4["Clear side-table entry"]
+        U4 --> U5["Release spinlock"]
+    end
 
-**hide_process(pid)**:
-1. `find_process_by_pid(pid)` — Walks `ActiveProcessLinks` do System process, compara `UniqueProcessId`
-2. Acquire spinlock (`g_hidden_lock`)
-3. Salva FLINK/BLINK originais na side-table
-4. Desvincula de `ActiveProcessLinks` (Flink->Blink = Blink, Blink->Flink = Flink)
-5. Envenena links próprios (self-referential) — crasha qualquer walker
-6. Release spinlock
-
-**unhide_process(pid)**:
-1. Encontra entrada na side-table por PID
-2. Acquire spinlock
-3. Restaura FLINK/BLINK salvos
-4. Limpa entrada na side-table
-5. Release spinlock
+    style HIDE fill:#1f2937,stroke:#94a3b8,color:#fff
+    style UNHIDE fill:#1f2937,stroke:#94a3b8,color:#fff
+    style H1 fill:#374151,stroke:#94a3b8,color:#fff
+    style H4 fill:#dc2626,stroke:#991b1b,color:#fff
+    style H5 fill:#dc2626,stroke:#991b1b,color:#fff
+    style U3 fill:#059669,stroke:#047857,color:#fff
+```
 
 ### WSK (Winsock Kernel) Flow
 
-> [!NOTE]
-> **Diagrama WSK**: Coloque aqui o arquivo XML do diagrama mostrando o fluxo de socket WSK (init → listen → accept → handle_client).
+```mermaid
+flowchart TD
+    subgraph INIT["SOCKET INIT"]
+        direction TB
+        I1["WskRegister()<br/>Register WSK client"] --> I2["WskCaptureProviderNPI()<br/>Get WSK provider dispatch table"]
+    end
 
-O fluxo WSK funciona assim:
+    subgraph LISTENER["LISTENER THREAD"]
+        direction TB
+        L1["WskSocket()<br/>AF_INET, SOCK_STREAM, TCP"] --> L2["WskBind()<br/>0.0.0.0:4444"]
+        L2 --> L3["WskListen()"]
+        L3 --> L4{"Check g_unload_event"}
+        L4 -->|"Not signaled"| L5["WskAccept()<br/>Block until client<br/>1s timeout"]
+        L4 -->|"Signaled"| L9["WskCloseSocket()<br/>PsTerminateSystemThread()"]
+        L5 -->|"Client connected"| L6["handle_client()"]
+        L5 -->|"Timeout / Cancel"| L4
+        L6 --> L7{"Command loop"}
+        L7 -->|"recv 4-byte len"| L8a["recv body"]
+        L8a --> L8b["dispatch_command()"]
+        L8b --> L8c["send response"]
+        L8c --> L7
+        L7 -->|"Error / disconnect"| L8d["Close client socket"]
+        L8d --> L4
+    end
 
-**socket_init()**: `WskRegister()` + `WskCaptureProviderNPI()`
+    subgraph DEINIT["SOCKET DEINIT"]
+        direction TB
+        D1["KeSetEvent(g_unload_event)"] --> D2["Delay 100ms<br/>Wait for thread"]
+        D2 --> D3["WskReleaseProviderNPI()"]
+        D3 --> D4["WskDeregister()"]
+    end
 
-**listener_thread()**:
-1. `WskSocket()` — Cria listen socket
-2. `WskBind()` — Vincula a 0.0.0.0:4444
-3. `WskListen()` — Escuta por conexões
-4. Accept Loop:
-   - Verifica `g_unload_event` (para shutdown limpo)
-   - `WskAccept()` — Bloqueia até cliente conectar (timeout de 1s)
-   - `handle_client()` — Loop de comandos
-     - `wsk_recv_sync(rbuf, 4)` — Lê prefixo de comprimento
-     - `wsk_recv_sync(rbuf, len)` — Lê body
-     - `dispatch_command()` — Executa comando
-     - `wsk_send_sync(wbuf, 4+resp_len)` — Envia resposta
-   - Loop até erro ou disconnect
+    INIT --> LISTENER
+    LISTENER --> DEINIT
 
-**socket_deinit()**: `KeSetEvent(g_unload_event)` → delay 100ms → `WskReleaseProviderNPI()` → `WskDeregister()`
+    style INIT fill:#1f2937,stroke:#94a3b8,color:#fff
+    style LISTENER fill:#1f2937,stroke:#94a3b8,color:#fff
+    style DEINIT fill:#1f2937,stroke:#94a3b8,color:#fff
+    style L4 fill:#d97706,stroke:#b45309,color:#fff
+    style L7 fill:#4b5563,stroke:#d1d5db,color:#fff
+    style L8b fill:#059669,stroke:#047857,color:#fff
+```
 
 ---
 
